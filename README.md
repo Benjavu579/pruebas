@@ -37,7 +37,7 @@ npm run dev
 El proyecto soporta **H2** y **PostgreSQL**. Para alternar entre ellas, debes editar el archivo:
 `backend/src/main/resources/application.properties`
 
-- **Para PostgreSQL:** Crea la base de datos en tu CMD (`CREATE DATABASE inspectoria_angular;`), descomenta el bloque de PostgreSQL en el archivo y comenta el de H2.
+- **Para PostgreSQL:** Crea la base de datos en tu CMD (`createdb -U postgres -E UTF-8 inspectoria_angular`), descomenta el bloque de PostgreSQL en el archivo y comenta el de H2.
 - **Para H2:** Asegúrate de que el bloque de H2 esté descomentado (opción por defecto).
 
 #### 2. Iniciar el Backend
