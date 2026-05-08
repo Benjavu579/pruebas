@@ -14,6 +14,14 @@ Plataforma web para la gestión académica y disciplinaria de una institución e
 
 ## 🚀 Cómo Ejecutar el Proyecto
 
+## Primero que todo
+Abrir el proyecto desde la raiz
+ir a cd frontend
+```bash
+npm install
+cd ..
+```
+
 ### Opción 1: Ejecución Automática (Recomendado)
 
 Desde la carpeta raíz del proyecto, ejecuta:
