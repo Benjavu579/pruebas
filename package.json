@@ -1,0 +1,16 @@
+{
+  "name": "Taller 2",
+  "version": "1.0.0",
+  "description": "Sistema de Inspectoría",
+  "scripts": {
+    "dev:backend": "cd backend && .\\mvnw.cmd spring-boot:run",
+    "dev:frontend": "cd frontend && npm start",
+    "dev": "npx concurrently \"npm run dev:backend\" \"npm run dev:frontend\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
