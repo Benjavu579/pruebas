@@ -59,15 +59,10 @@ interface AttendanceState {
         </div>
       </div>
 
-      <!-- Navegación de Semanas -->
-      <div class="d-flex justify-content-between align-items-center mb-3 animate-slide-up" *ngIf="idCurso && alumnos().length > 0">
-        <button class="btn btn-outline-primary" (click)="cambiarSemana(-1)">
-          <i class="bi bi-chevron-left me-1"></i> Semana Anterior
-        </button>
+      <!-- Título de Semana (Solo actual) -->
+      <div class="text-center mb-3 animate-slide-up" *ngIf="idCurso && alumnos().length > 0">
         <h4 class="fw-bold mb-0 text-slate-800">{{ getRangoSemana() }}</h4>
-        <button class="btn btn-outline-primary" (click)="cambiarSemana(1)">
-          Semana Siguiente <i class="bi bi-chevron-right ms-1"></i>
-        </button>
+        <p class="text-muted small mt-1">Asistencia semanal (Lunes a Sábado)</p>
       </div>
 
       <!-- Tabla de Asistencia -->
@@ -178,15 +173,10 @@ export class AsistenciaComponent implements OnInit {
   iniciarSemanaActual() {
     const today = new Date();
     const day = today.getDay();
+    // Ajustar al lunes de la semana actual
     const diff = today.getDate() - day + (day === 0 ? -6 : 1);
     this.lunesActual = new Date(today.setDate(diff));
     this.lunesActual.setHours(0, 0, 0, 0);
-  }
-
-  cambiarSemana(offset: number) {
-    const newLunes = new Date(this.lunesActual);
-    newLunes.setDate(newLunes.getDate() + (offset * 7));
-    this.lunesActual = newLunes;
   }
 
   diasSemanaActiva(): Date[] {
@@ -241,17 +231,15 @@ export class AsistenciaComponent implements OnInit {
       this.aplicarFiltros();
       
       const map: AttendanceState = {};
-      const diasPasados = this.generarDiasPasadosDelSemestre();
+      const diasSemana = this.diasSemanaActiva();
 
       data.forEach(a => {
         const studentMap: { [fecha: string]: string } = {};
-        const inasistencias = a.cantidadInasistencias || 0;
-        
-        // Inicializamos los días pasados en P, y luego marcamos 'A' en los más recientes
-        for (let i = 0; i < diasPasados.length; i++) {
-          const fechaStr = this.formatDate(diasPasados[i]);
-          studentMap[fechaStr] = i < inasistencias ? 'A' : 'P';
-        }
+        // Para esta semana, inicializamos todo en P (Presente)
+        diasSemana.forEach(d => {
+          const fechaStr = this.formatDate(d);
+          studentMap[fechaStr] = 'P';
+        });
         map[a.id] = studentMap;
       });
       this.asistenciaMap = map;
@@ -307,8 +295,10 @@ export class AsistenciaComponent implements OnInit {
     const estados = Object.values(mapFechas);
     if (estados.length === 0) return 100;
     
+    // Calculamos en base a los 6 días de la semana (Lunes a Sábado)
     const presentes = estados.filter(v => v === 'P').length;
-    return Math.round((presentes / Math.max(estados.length, 1)) * 100);
+    const totalDiasSemana = 6;
+    return Math.round((presentes / totalDiasSemana) * 100);
   }
 
   getPorcentajeColor(alumnoId: number): string {
