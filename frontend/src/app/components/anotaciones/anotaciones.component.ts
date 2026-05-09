@@ -17,21 +17,26 @@ import { ActivatedRoute } from '@angular/router';
         </button>
       </header>
 
-      <!-- Selector de Curso General -->
-      <div class="card mb-4 border animate-slide-up">
-        <div class="card-body p-4 bg-light border-0">
-          <div class="row align-items-center">
-            <div class="col-md-6">
-              <label class="form-label fw-bold text-uppercase smaller text-muted">Curso Activo (Filtro)</label>
-              <select class="form-select form-select-lg rounded-0 border-0 shadow-sm" [(ngModel)]="idCursoActivo" (change)="onCursoChange()">
+      <!-- Filtros de búsqueda -->
+      <div class="card mb-4 border animate-slide-up bg-white shadow-sm">
+        <div class="card-body p-4">
+          <div class="row g-3 align-items-center justify-content-between">
+            <div class="col-md-5">
+              <label class="form-label fw-bold text-uppercase smaller text-muted">Filtrar por Curso</label>
+              <select class="form-select form-select-lg" [(ngModel)]="idCursoActivo" (change)="onCursoChange()">
                 <option [ngValue]="null" selected>Todos los cursos</option>
                 <option *ngFor="let c of cursos()" [value]="c.id">{{ c.nombre }} ({{ c.nivel }}° Nivel)</option>
               </select>
             </div>
-            <div class="col-md-6 text-md-end mt-3 mt-md-0" *ngIf="idCursoActivo">
-              <span class="badge bg-primary px-3 py-2 rounded-0 tracking-widest text-uppercase">
-                <i class="bi bi-people-fill me-1"></i> {{ getAlumnosParaCursoActivo().length }} Estudiantes disponibles
-              </span>
+            <div class="col-md-6">
+              <label class="form-label fw-bold text-uppercase smaller text-muted">Buscar Alumno</label>
+              <div class="d-flex align-items-center gap-2">
+                <div class="bg-white border rounded d-flex align-items-center justify-content-center" style="width: 45px; height: 48px;">
+                  <i class="bi bi-search text-muted"></i>
+                </div>
+                <input type="text" class="form-control form-control-lg" placeholder="Escribe el nombre, apellido o RUT..." 
+                  [(ngModel)]="textoBusqueda" (input)="aplicarFiltros()">
+              </div>
             </div>
           </div>
         </div>
@@ -50,7 +55,7 @@ import { ActivatedRoute } from '@angular/router';
               <select class="form-select rounded-0" [(ngModel)]="nuevaAnotacion.id_alumno" name="alumno" required>
                 <option [ngValue]="null" disabled selected>-- Seleccione estudiante --</option>
                 <!-- Solo mostramos alumnos que tengan ID para este curso -->
-                <option *ngFor="let a of getAlumnosParaCursoActivo()" [value]="getIdParaCursoActivo(a)">{{ a.rut }} - {{ a.nombre }} {{ a.apellidoPaterno }}</option>
+                <option *ngFor="let a of getAlumnosParaCursoActivo()" [value]="getIdParaCursoActivo(a)">{{ a.rut }} - {{ a.nombre }} {{ a.apellidoPaterno }} {{ a.apellidoMaterno || '' }}</option>
               </select>
             </div>
             <div class="col-md-4">
@@ -96,7 +101,7 @@ import { ActivatedRoute } from '@angular/router';
             <tbody>
               <tr *ngFor="let a of alumnosAgrupados()">
                 <td class="px-4 py-3 fw-bold text-slate-700 border-bottom-0">{{ a.rut }}</td>
-                <td class="py-3 border-bottom-0">{{ a.nombre }} {{ a.apellidoPaterno }}</td>
+                <td class="py-3 border-bottom-0">{{ a.nombre }} {{ a.apellidoPaterno }} {{ a.apellidoMaterno || '' }}</td>
                 <td class="py-3 border-bottom-0">
                   <span *ngFor="let m of a.matriculas" class="badge bg-light text-secondary border me-1">{{ m.curso?.nombre }}</span>
                 </td>
@@ -135,10 +140,12 @@ export class AnotacionesComponent implements OnInit {
 
   anotaciones = signal<any[]>([]);
   cursos = signal<any[]>([]);
-  alumnosAgrupados = signal<any[]>([]); // Para la tabla (filtrados con anotaciones)
-  alumnosCompletos = signal<any[]>([]); // Para el menú desplegable (todos)
+  alumnosOriginales = signal<any[]>([]); // Todos los alumnos con sus anotaciones base
+  alumnosAgrupados = signal<any[]>([]);  // Lista filtrada para la tabla
+  alumnosCompletos = signal<any[]>([]);  // Para el menú desplegable (todos)
   mostrarForm = false;
   idCursoActivo: number | null = null;
+  textoBusqueda: string = '';
   
   nuevaAnotacion = {
     id_alumno: null as number | null,
@@ -199,29 +206,44 @@ export class AnotacionesComponent implements OnInit {
 
       const todosLosAlumnos = Array.from(groupedMap.values());
       this.alumnosCompletos.set(todosLosAlumnos); // Para el selector de nueva anotación
+      this.alumnosOriginales.set(todosLosAlumnos); 
       
-      let resultado = [...todosLosAlumnos];
-      
-      // Filtrar alumnos que tengan al menos una anotación globalmente
-      resultado = resultado.filter(s => s.anotaciones.length > 0);
+      this.aplicarFiltros();
+  }
 
-      // Si hay un curso activo, filtramos la vista
-      if (this.idCursoActivo) {
-         const idActivo = Number(this.idCursoActivo);
-         
-         // Filtramos estudiantes que pertenezcan al curso activo
-         resultado = resultado.filter(s => s.matriculas.some((m:any) => m.curso && m.curso.id === idActivo));
-         
-         // Filtramos las anotaciones internas para que solo salgan las de la asignatura activa
-         resultado.forEach(s => {
-            s.anotaciones = s.anotaciones.filter((anot: any) => anot.alumno?.curso?.id === idActivo);
-         });
-
-         // Tras limpiar las anotaciones de otras materias, removemos a los estudiantes que quedaron con 0 anotaciones
-         resultado = resultado.filter(s => s.anotaciones.length > 0);
-      }
+  aplicarFiltros() {
+    let filtrados = this.alumnosOriginales().map(a => ({
+      ...a, 
+      anotaciones: [...a.anotaciones] // Clonamos para no afectar la lista original al filtrar internamente
+    }));
+    
+    // 1. Filtrar por Curso Activo
+    if (this.idCursoActivo) {
+      const idActivo = Number(this.idCursoActivo);
       
-      this.alumnosAgrupados.set(resultado); // Para la tabla visual
+      // Solo alumnos que pertenezcan al curso activo
+      filtrados = filtrados.filter(s => s.matriculas.some((m: any) => m.curso && m.curso.id === idActivo));
+      
+      // Filtrar las anotaciones para que solo salgan las de este curso en el detalle
+      filtrados.forEach(s => {
+        s.anotaciones = s.anotaciones.filter((anot: any) => anot.alumno?.curso?.id === idActivo);
+      });
+    }
+
+    // 2. Filtrar por Texto (RUT, Nombre, Apellido)
+    if (this.textoBusqueda && this.textoBusqueda.trim() !== '') {
+      const texto = this.textoBusqueda.toLowerCase().trim();
+      filtrados = filtrados.filter(a => 
+        (a.nombre + ' ' + (a.apellidoPaterno || '') + ' ' + (a.apellidoMaterno || '')).toLowerCase().includes(texto) ||
+        (a.rut && a.rut.toString().includes(texto))
+      );
+    }
+
+    // 3. Solo mostrar estudiantes que tengan al menos una anotación (según los filtros aplicados)
+    // Esto mantiene el comportamiento original de la tabla de anotaciones.
+    filtrados = filtrados.filter(s => s.anotaciones.length > 0);
+    
+    this.alumnosAgrupados.set(filtrados);
   }
 
   onCursoChange() {

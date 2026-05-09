@@ -27,22 +27,34 @@ interface AttendanceState {
         </div>
       </header>
 
-      <!-- Selector de Curso -->
-      <div class="card mb-4 border animate-slide-up">
-        <div class="card-body p-4 bg-light border-0">
-          <div class="row align-items-center g-3">
-            <div class="col-md-6">
+      <!-- Selector de Curso y Buscador -->
+      <div class="card mb-4 border animate-slide-up bg-white shadow-sm">
+        <div class="card-body p-4">
+          <div class="row g-3 align-items-center justify-content-between">
+            <div class="col-md-5">
               <label class="form-label fw-bold text-uppercase smaller text-muted">Seleccionar Curso</label>
               <select class="form-select form-select-lg" [(ngModel)]="idCurso" (change)="onCursoChange()">
                 <option [ngValue]="null" disabled selected>-- Elija un curso --</option>
                 <option *ngFor="let c of cursos()" [value]="c.id">{{ c.nombre }} ({{ c.nivel }}° Nivel)</option>
               </select>
             </div>
-            <div class="col-md-6 text-md-end" *ngIf="idCurso">
-              <span class="badge bg-primary px-3 py-2 tracking-widest text-uppercase">
-                <i class="bi bi-people-fill me-1"></i> {{ alumnos().length }} Estudiantes
-              </span>
+            
+            <div class="col-md-6" *ngIf="idCurso && alumnosOriginales().length > 0">
+              <label class="form-label fw-bold text-uppercase smaller text-muted">Buscar Alumno</label>
+              <div class="d-flex align-items-center gap-2">
+                <div class="bg-white border rounded d-flex align-items-center justify-content-center" style="width: 45px; height: 48px;">
+                  <i class="bi bi-search text-muted"></i>
+                </div>
+                <input type="text" class="form-control form-control-lg" placeholder="Buscar por nombre, apellido o RUT..." 
+                  [(ngModel)]="textoBusqueda" (input)="aplicarFiltros()">
+              </div>
             </div>
+          </div>
+
+          <div class="mt-3 text-end" *ngIf="idCurso">
+            <span class="badge bg-primary px-3 py-2 tracking-widest text-uppercase">
+              <i class="bi bi-people-fill me-1"></i> {{ alumnosOriginales().length }} Estudiantes
+            </span>
           </div>
         </div>
       </div>
@@ -77,7 +89,7 @@ interface AttendanceState {
               <tbody>
                 <tr *ngFor="let a of alumnos()" class="table-row-hover">
                   <td class="ps-4 fw-bold text-slate-700">{{ a.rut }}</td>
-                  <td>{{ a.nombre }} {{ a.apellidoPaterno }}</td>
+                  <td>{{ a.nombre }} {{ a.apellidoPaterno }} {{ a.apellidoMaterno || '' }}</td>
                   
                   <!-- 6 Days Grid -->
                   <td class="text-center px-1" *ngFor="let d of diasSemanaActiva()">
@@ -143,10 +155,12 @@ export class AsistenciaComponent implements OnInit {
   private router = inject(Router);
 
   cursos = signal<any[]>([]);
-  alumnos = signal<any[]>([]);
+  alumnosOriginales = signal<any[]>([]); // Lista completa
+  alumnos = signal<any[]>([]);           // Lista filtrada para la tabla
   idCurso: number | null = null;
   asistenciaMap: AttendanceState = {};
   guardando = signal(false);
+  textoBusqueda: string = '';
   
   lunesActual: Date = new Date();
 
@@ -223,7 +237,8 @@ export class AsistenciaComponent implements OnInit {
   cargarAlumnos() {
     if (!this.idCurso) return;
     this.http.get<any[]>(`http://localhost:8080/api/v1/alumnos/curso/${this.idCurso}`).subscribe(data => {
-      this.alumnos.set(data);
+      this.alumnosOriginales.set(data);
+      this.aplicarFiltros();
       
       const map: AttendanceState = {};
       const diasPasados = this.generarDiasPasadosDelSemestre();
@@ -241,6 +256,20 @@ export class AsistenciaComponent implements OnInit {
       });
       this.asistenciaMap = map;
     });
+  }
+
+  aplicarFiltros() {
+    let filtrados = this.alumnosOriginales();
+    
+    if (this.textoBusqueda && this.textoBusqueda.trim() !== '') {
+      const texto = this.textoBusqueda.toLowerCase().trim();
+      filtrados = filtrados.filter(a => 
+        (a.nombre + ' ' + (a.apellidoPaterno || '') + ' ' + (a.apellidoMaterno || '')).toLowerCase().includes(texto) ||
+        (a.rut && a.rut.toString().includes(texto))
+      );
+    }
+    
+    this.alumnos.set(filtrados);
   }
 
   // Genera un historial ficticio de días hacia atrás para acomodar la cantidad total de inasistencias

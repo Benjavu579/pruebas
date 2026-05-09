@@ -71,19 +71,22 @@ import { HttpClient } from '@angular/common/http';
       <!-- Filtros de búsqueda -->
       <div class="card mb-4 border animate-slide-up bg-white shadow-sm">
         <div class="card-body p-4">
-          <div class="row g-3 align-items-center">
+          <div class="row g-3 align-items-center justify-content-between">
             <div class="col-md-5">
               <label class="form-label fw-bold text-uppercase smaller text-muted">Filtrar por Curso</label>
-              <select class="form-select" [(ngModel)]="filtroCursoId" (change)="aplicarFiltros()">
+              <select class="form-select form-select-lg" [(ngModel)]="filtroCursoId" (change)="aplicarFiltros()">
                 <option [ngValue]="null" selected>Todos los cursos</option>
                 <option *ngFor="let c of cursos()" [value]="c.id">{{ c.nombre }} ({{ c.nivel }}° Nivel)</option>
               </select>
             </div>
-            <div class="col-md-7">
+            <div class="col-md-6">
               <label class="form-label fw-bold text-uppercase smaller text-muted">Buscar Alumno</label>
-              <div class="input-group">
-                <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
-                <input type="text" class="form-control border-start-0" placeholder="Escribe el nombre o apellido..." [(ngModel)]="filtroTexto" (input)="aplicarFiltros()">
+              <div class="d-flex align-items-center gap-2">
+                <div class="bg-white border rounded d-flex align-items-center justify-content-center" style="width: 45px; height: 48px;">
+                  <i class="bi bi-search text-muted"></i>
+                </div>
+                <input type="text" class="form-control form-control-lg" placeholder="Escribe el nombre, apellido o RUT..." 
+                  [(ngModel)]="filtroTexto" (input)="aplicarFiltros()">
               </div>
             </div>
           </div>
