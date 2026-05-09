@@ -27,7 +27,12 @@ import { Router } from '@angular/router';
             </div>
             <div class="col-md-4">
               <label class="form-label fw-bold text-uppercase smaller text-muted">Nivel</label>
-              <input type="text" class="form-control" [(ngModel)]="nuevoCurso.nivel" name="nivel" placeholder="Ej: Media">
+              <select class="form-select" [(ngModel)]="nuevoCurso.nivel" name="nivel" required>
+                <option value="" disabled selected>-- Elija nivel --</option>
+                <option value="Básico">Básico</option>
+                <option value="Medio">Medio</option>
+                <option value="Superior">Superior</option>
+              </select>
             </div>
             <div class="col-md-4 d-flex align-items-end">
               <button type="submit" class="btn btn-success w-100 py-2">Guardar Curso</button>
@@ -43,13 +48,13 @@ import { Router } from '@angular/router';
             <div class="card-body p-4 d-flex flex-column">
               <div class="d-flex justify-content-between align-items-start mb-3">
                 <div class="badge bg-primary text-white py-2 px-3 fw-bold text-uppercase tracking-widest rounded-0">
-                  <i class="bi bi-mortarboard-fill me-1"></i> Nivel Superior
+                  <i class="bi bi-mortarboard-fill me-1"></i> Nivel {{ curso.nivel || 'N/A' }}
                 </div>
                 <button class="btn btn-sm btn-outline-danger border-0" (click)="eliminarCurso(curso.id)">
                   <i class="bi bi-trash"></i>
                 </button>
               </div>
-              <h3 class="h4 fw-bold text-slate-800 mb-3">{{ curso.nombre }}</h3>
+              <h3 class="h4 fw-bold text-slate-800 mb-2">{{ curso.nombre }}</h3>
               <div class="d-flex align-items-center gap-2 text-muted small mb-4 flex-grow-1">
                 <i class="bi bi-people-fill"></i>
                 <span>Estudiantes registrados</span>
@@ -69,6 +74,7 @@ import { Router } from '@angular/router';
           </div>
         </div>
       </div>
+
     </div>
   `,
   styles: [`

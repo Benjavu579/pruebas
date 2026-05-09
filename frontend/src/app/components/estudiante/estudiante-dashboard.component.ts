@@ -73,7 +73,7 @@ import { Router, RouterLink } from '@angular/router';
                   <i class="bi bi-book text-primary"></i>
                 </div>
                 <div>
-                  <p class="fw-bold mb-0 text-slate-800">Mis Asignaturas</p>
+                  <p class="fw-bold mb-0 text-slate-800">Mis Inscripciones</p>
                   <p class="text-muted smaller mb-0">Ver detalle de cursos</p>
                 </div>
               </div>

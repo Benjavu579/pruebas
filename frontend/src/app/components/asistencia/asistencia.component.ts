@@ -4,9 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 
-/** Tracks attendance state for each student over a 6-day week */
+/** Tracks attendance state for each student */
 interface AttendanceState {
-  [alumnoId: number]: string[]; // Array of 6 elements: 'P' or 'A'
+  [alumnoId: number]: { [fecha: string]: string }; // 'P' or 'A'
 }
 
 @Component({
@@ -20,9 +20,11 @@ interface AttendanceState {
           <h2 class="display-6 fw-bold mb-0">Pase de Lista</h2>
           <p class="text-muted mt-1 mb-0">Registra la asistencia del curso seleccionado</p>
         </div>
-        <button class="btn btn-outline-secondary d-none d-md-inline-flex align-items-center gap-2" (click)="volver()">
-          <i class="bi bi-arrow-left"></i> Volver a Cursos
-        </button>
+        <div class="d-flex gap-2">
+          <button class="btn btn-outline-secondary d-none d-md-inline-flex align-items-center gap-2" (click)="volver()">
+            <i class="bi bi-arrow-left"></i> Volver a Cursos
+          </button>
+        </div>
       </header>
 
       <!-- Selector de Curso -->
@@ -45,6 +47,17 @@ interface AttendanceState {
         </div>
       </div>
 
+      <!-- Navegación de Semanas -->
+      <div class="d-flex justify-content-between align-items-center mb-3 animate-slide-up" *ngIf="idCurso && alumnos().length > 0">
+        <button class="btn btn-outline-primary" (click)="cambiarSemana(-1)">
+          <i class="bi bi-chevron-left me-1"></i> Semana Anterior
+        </button>
+        <h4 class="fw-bold mb-0 text-slate-800">{{ getRangoSemana() }}</h4>
+        <button class="btn btn-outline-primary" (click)="cambiarSemana(1)">
+          Semana Siguiente <i class="bi bi-chevron-right ms-1"></i>
+        </button>
+      </div>
+
       <!-- Tabla de Asistencia -->
       <div class="animate-slide-up" *ngIf="idCurso && alumnos().length > 0">
         <div class="card border overflow-hidden">
@@ -54,7 +67,10 @@ interface AttendanceState {
                 <tr>
                   <th class="ps-4">RUT</th>
                   <th>NOMBRE COMPLETO</th>
-                  <th class="text-center" *ngFor="let dia of diasSemana">{{ dia }}</th>
+                  <th class="text-center" *ngFor="let d of diasSemanaActiva()">
+                    {{ nombreDia(d) }}<br>
+                    <small class="text-muted" style="font-size: 0.7rem">{{ fechaCorta(d) }}</small>
+                  </th>
                   <th class="text-center bg-light border-start">% ASIST.</th>
                 </tr>
               </thead>
@@ -64,21 +80,21 @@ interface AttendanceState {
                   <td>{{ a.nombre }} {{ a.apellidoPaterno }}</td>
                   
                   <!-- 6 Days Grid -->
-                  <td class="text-center px-1" *ngFor="let dia of diasSemana; let i = index">
+                  <td class="text-center px-1" *ngFor="let d of diasSemanaActiva()">
                     <div class="attendance-toggle mx-auto">
-                      <input type="checkbox" [id]="'dia_' + i + '_' + a.id" class="btn-check"
-                        [checked]="asistenciaMap[a.id][i] === 'P'"
-                        (change)="toggleEstado(a.id, i)">
-                      <label [for]="'dia_' + i + '_' + a.id" class="toggle-btn" 
-                             [ngClass]="asistenciaMap[a.id][i] === 'P' ? 'btn-present' : 'btn-absent'" 
-                             [title]="asistenciaMap[a.id][i] === 'P' ? 'Presente' : 'Ausente'">
-                        {{ asistenciaMap[a.id][i] }}
+                      <input type="checkbox" [id]="'dia_' + d.getTime() + '_' + a.id" class="btn-check"
+                        [checked]="getEstado(a.id, d) === 'P'"
+                        (change)="toggleEstado(a.id, d)">
+                      <label [for]="'dia_' + d.getTime() + '_' + a.id" class="toggle-btn" 
+                             [ngClass]="getEstado(a.id, d) === 'P' ? 'btn-present' : 'btn-absent'" 
+                             [title]="getEstado(a.id, d) === 'P' ? 'Presente' : 'Ausente'">
+                        {{ getEstado(a.id, d) }}
                       </label>
                     </div>
                   </td>
 
                   <td class="text-center fw-bold bg-light border-start">
-                    <span [ngClass]="getPorcentajeColor(a.id)">{{ calcularPorcentaje(a.id) }}%</span>
+                    <span [ngClass]="getPorcentajeColor(a.id)">{{ calcularPorcentajeGlobal(a.id) }}%</span>
                   </td>
                 </tr>
               </tbody>
@@ -90,10 +106,10 @@ interface AttendanceState {
               <span><span class="fw-bold text-success">{{ contarGlobal('P') }}</span> Días Presentes (Total)</span>
               <span><span class="fw-bold text-danger">{{ contarGlobal('A') }}</span> Días Ausentes (Total)</span>
             </div>
-            <button class="btn btn-primary px-5 py-2" (click)="guardarAsistencia()" [disabled]="guardando">
-              <span *ngIf="guardando" class="spinner-border spinner-border-sm me-2" role="status"></span>
-              <i *ngIf="!guardando" class="bi bi-cloud-upload me-2"></i>
-              {{ guardando ? 'Guardando...' : 'Guardar Asistencia' }}
+            <button class="btn btn-primary px-5 py-2" (click)="guardarAsistencia()" [disabled]="guardando()">
+              <span *ngIf="guardando()" class="spinner-border spinner-border-sm me-2" role="status"></span>
+              <i *ngIf="!guardando()" class="bi bi-cloud-upload me-2"></i>
+              {{ guardando() ? 'Guardando...' : 'Guardar Asistencia' }}
             </button>
           </div>
         </div>
@@ -130,10 +146,12 @@ export class AsistenciaComponent implements OnInit {
   alumnos = signal<any[]>([]);
   idCurso: number | null = null;
   asistenciaMap: AttendanceState = {};
-  diasSemana = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-  guardando = false;
+  guardando = signal(false);
+  
+  lunesActual: Date = new Date();
 
   ngOnInit() {
+    this.iniciarSemanaActual();
     this.cargarCursos();
     this.route.queryParams.subscribe(params => {
       if (params['idCurso']) {
@@ -141,6 +159,56 @@ export class AsistenciaComponent implements OnInit {
         this.cargarAlumnos();
       }
     });
+  }
+
+  iniciarSemanaActual() {
+    const today = new Date();
+    const day = today.getDay();
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    this.lunesActual = new Date(today.setDate(diff));
+    this.lunesActual.setHours(0, 0, 0, 0);
+  }
+
+  cambiarSemana(offset: number) {
+    const newLunes = new Date(this.lunesActual);
+    newLunes.setDate(newLunes.getDate() + (offset * 7));
+    this.lunesActual = newLunes;
+  }
+
+  diasSemanaActiva(): Date[] {
+    const days = [];
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(this.lunesActual);
+      d.setDate(d.getDate() + i);
+      days.push(d);
+    }
+    return days;
+  }
+
+  nombreDia(d: Date): string {
+    const nombres = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    return nombres[d.getDay()];
+  }
+
+  fechaCorta(d: Date): string {
+    const day = d.getDate().toString().padStart(2, '0');
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+    return `${day}/${month}`;
+  }
+
+  formatDate(d: Date): string {
+    const year = d.getFullYear();
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+    const day = d.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  getRangoSemana(): string {
+    const dias = this.diasSemanaActiva();
+    if (dias.length === 0) return '';
+    const ini = this.fechaCorta(dias[0]);
+    const fin = this.fechaCorta(dias[5]);
+    return `Semana del ${ini} al ${fin}`;
   }
 
   cargarCursos() {
@@ -158,34 +226,64 @@ export class AsistenciaComponent implements OnInit {
       this.alumnos.set(data);
       
       const map: AttendanceState = {};
+      const diasPasados = this.generarDiasPasadosDelSemestre();
+
       data.forEach(a => {
-        // Distribuimos las inasistencias en la semana (de derecha a izquierda o izquierda a derecha)
-        // Para que coincida con el backend, si tiene 2 inasistencias, marcamos los últimos 2 días como 'A'
-        const inasistenciasPrevias = Math.min(a.cantidadInasistencias || 0, 6);
-        const grid = Array(6).fill('P');
-        for (let i = 0; i < inasistenciasPrevias; i++) {
-          grid[5 - i] = 'A'; // Empezamos poniendo ausente desde el sábado hacia atrás
+        const studentMap: { [fecha: string]: string } = {};
+        const inasistencias = a.cantidadInasistencias || 0;
+        
+        // Inicializamos los días pasados en P, y luego marcamos 'A' en los más recientes
+        for (let i = 0; i < diasPasados.length; i++) {
+          const fechaStr = this.formatDate(diasPasados[i]);
+          studentMap[fechaStr] = i < inasistencias ? 'A' : 'P';
         }
-        map[a.id] = grid;
+        map[a.id] = studentMap;
       });
       this.asistenciaMap = map;
     });
   }
 
-  toggleEstado(alumnoId: number, diaIndex: number) {
-    const currentState = this.asistenciaMap[alumnoId][diaIndex];
-    this.asistenciaMap[alumnoId][diaIndex] = currentState === 'P' ? 'A' : 'P';
+  // Genera un historial ficticio de días hacia atrás para acomodar la cantidad total de inasistencias
+  generarDiasPasadosDelSemestre(): Date[] {
+    const days = [];
+    const d = new Date();
+    d.setHours(0,0,0,0);
+    // Generamos hasta 60 días hacia atrás excluyendo domingos
+    for (let i = 0; i < 60; i++) {
+      if (d.getDay() !== 0) {
+        days.push(new Date(d));
+      }
+      d.setDate(d.getDate() - 1);
+    }
+    return days;
   }
 
-  calcularPorcentaje(alumnoId: number): number {
-    const array = this.asistenciaMap[alumnoId];
-    if (!array) return 100;
-    const presentes = array.filter((v: string) => v === 'P').length;
-    return Math.round((presentes / 6) * 100);
+  getEstado(alumnoId: number, d: Date): string {
+    const fechaStr = this.formatDate(d);
+    if (!this.asistenciaMap[alumnoId]) return 'P';
+    return this.asistenciaMap[alumnoId][fechaStr] || 'P';
+  }
+
+  toggleEstado(alumnoId: number, d: Date) {
+    const fechaStr = this.formatDate(d);
+    if (!this.asistenciaMap[alumnoId]) this.asistenciaMap[alumnoId] = {};
+    const currentState = this.getEstado(alumnoId, d);
+    this.asistenciaMap[alumnoId][fechaStr] = currentState === 'P' ? 'A' : 'P';
+  }
+
+  calcularPorcentajeGlobal(alumnoId: number): number {
+    const mapFechas = this.asistenciaMap[alumnoId];
+    if (!mapFechas) return 100;
+    
+    const estados = Object.values(mapFechas);
+    if (estados.length === 0) return 100;
+    
+    const presentes = estados.filter(v => v === 'P').length;
+    return Math.round((presentes / Math.max(estados.length, 1)) * 100);
   }
 
   getPorcentajeColor(alumnoId: number): string {
-    const pct = this.calcularPorcentaje(alumnoId);
+    const pct = this.calcularPorcentajeGlobal(alumnoId);
     if (pct >= 85) return 'text-success';
     if (pct >= 70) return 'text-warning';
     return 'text-danger';
@@ -193,8 +291,8 @@ export class AsistenciaComponent implements OnInit {
 
   contarGlobal(estado: 'P' | 'A'): number {
     let count = 0;
-    Object.values(this.asistenciaMap).forEach(arr => {
-      count += arr.filter((v: string) => v === estado).length;
+    Object.values(this.asistenciaMap).forEach(mapFechas => {
+      count += Object.values(mapFechas).filter(v => v === estado).length;
     });
     return count;
   }
@@ -204,14 +302,15 @@ export class AsistenciaComponent implements OnInit {
   }
 
   guardarAsistencia() {
-    this.guardando = true;
+    this.guardando.set(true);
 
-    // Build payload: count absences in the 6-day grid for each student
+    // Build payload: count absences across all recorded days in the map
     const updates = this.alumnos().map(alumno => {
-      const faltasEnSemana = this.asistenciaMap[alumno.id].filter(v => v === 'A').length;
+      const mapFechas = this.asistenciaMap[alumno.id] || {};
+      const faltasTotales = Object.values(mapFechas).filter(v => v === 'A').length;
       return {
         id: alumno.id,
-        cantidadInasistencias: faltasEnSemana, // Sobrescribimos con lo exacto de la grilla
+        cantidadInasistencias: faltasTotales,
         cantidadAtrasos: alumno.cantidadAtrasos,
       };
     });
@@ -220,7 +319,7 @@ export class AsistenciaComponent implements OnInit {
     let completed = 0;
     const total = updates.length;
 
-    if (total === 0) { this.guardando = false; return; }
+    if (total === 0) { this.guardando.set(false); return; }
 
     updates.forEach(update => {
       const alumno = this.alumnos().find(a => a.id === update.id);
@@ -229,7 +328,7 @@ export class AsistenciaComponent implements OnInit {
         cantidadInasistencias: update.cantidadInasistencias,
         cantidadAtrasos: update.cantidadAtrasos,
       };
-      this.http.post('http://localhost:8080/api/v1/alumnos/', payload)
+      this.http.put(`http://localhost:8080/api/v1/alumnos/${alumno.id}`, payload)
         .subscribe({
           next: () => {
             completed++;
@@ -244,8 +343,8 @@ export class AsistenciaComponent implements OnInit {
   }
 
   private onSaveComplete() {
-    this.guardando = false;
-    this.cargarAlumnos(); // Refresh data
+    this.guardando.set(false);
+    // Removimos this.cargarAlumnos() para que no se reinicie el calendario y mantenga los días exactos que marcaste.
     import('sweetalert2').then(({ default: Swal }) => {
       Swal.fire({
         title: '¡Asistencia Guardada!',

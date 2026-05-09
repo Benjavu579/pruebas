@@ -16,7 +16,6 @@ public class CursoEntity {
 
     private String nombre;
     private String nivel;
-    private String seccion;
 
     @OneToMany(mappedBy = "curso")
     @com.fasterxml.jackson.annotation.JsonIgnore

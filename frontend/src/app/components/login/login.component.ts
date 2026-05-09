@@ -72,7 +72,7 @@ import { Router, RouterLink } from '@angular/router';
             <label class="form-label smaller fw-bold text-uppercase text-muted mb-1">Usuario / RUT</label>
             <div class="input-group">
               <span class="input-group-text border-end-0 bg-white px-3"><i class="bi bi-person text-muted"></i></span>
-              <input type="text" class="form-control border-start-0 py-2" [(ngModel)]="username" name="user" placeholder="Ingresa usuario" required>
+              <input type="text" class="form-control border-start-0 py-2" [(ngModel)]="usernameDisplay" (ngModelChange)="onUserChange($event)" name="user" placeholder="Ingresa usuario" required maxlength="12">
             </div>
           </div>
           <div class="mb-3">
@@ -134,6 +134,7 @@ export class LoginComponent implements OnInit {
 
   role: 'profesor' | 'alumno' = 'profesor';
   demoUser: 'Joshua' | 'Benjamín' | 'Leo' | null = null;
+  usernameDisplay = '';
   username = '';
   password = '';
   error = '';
@@ -143,6 +144,7 @@ export class LoginComponent implements OnInit {
   setRole(newRole: 'profesor' | 'alumno') {
     this.role = newRole;
     this.demoUser = null;
+    this.usernameDisplay = '';
     this.username = '';
     this.password = '';
     this.error = '';
@@ -152,15 +154,49 @@ export class LoginComponent implements OnInit {
     this.demoUser = user;
     if (user === 'Joshua') {
       this.username = 'Joshua';
+      this.usernameDisplay = 'Joshua';
       this.password = '1234';
     } else if (user === 'Benjamín') {
       this.username = 'Benjamín';
+      this.usernameDisplay = 'Benjamín';
       this.password = '1234';
     } else if (user === 'Leo') {
       this.username = 'Leo';
+      this.usernameDisplay = 'Leo';
       this.password = '1234';
     }
     this.error = '';
+  }
+
+  onUserChange(value: string) {
+    // If it's pure letters, don't format it as a RUT, since usernames can be 'Leo' or 'Joshua'
+    if (/^[A-Za-z]+$/.test(value)) {
+      this.usernameDisplay = value;
+      this.username = value;
+      return;
+    }
+    
+    // Check if it contains digits. If so, format it as RUT.
+    if (/\d/.test(value)) {
+      let val = value.replace(/[^0-9Kk]/g, '').toUpperCase();
+      if (val.length > 9) {
+        val = val.slice(0, 9);
+      }
+      
+      let formatted = val;
+      if (val.length > 1) {
+        let body = val.slice(0, -1);
+        let dv = val.slice(-1);
+        body = body.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        formatted = body + '-' + dv;
+      }
+      
+      this.usernameDisplay = formatted;
+      this.username = val; // Store raw value
+    } else {
+      this.usernameDisplay = value;
+      this.username = value;
+    }
   }
 
   login() {

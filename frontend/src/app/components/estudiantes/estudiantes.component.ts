@@ -22,7 +22,7 @@ import { HttpClient } from '@angular/common/http';
           <form (ngSubmit)="guardarAlumno()" class="row g-3">
             <div class="col-md-3">
               <label class="form-label fw-bold text-uppercase smaller text-muted">RUT</label>
-              <input type="number" class="form-control" [(ngModel)]="alumnoForm.rut" name="rut" placeholder="Ej: 11111111" required [disabled]="modoEdicion">
+              <input type="text" class="form-control" [ngModel]="rutDisplay" (ngModelChange)="onRutChange($event)" name="rut" placeholder="Ej: 11.111.111-1" required [disabled]="modoEdicion" maxlength="12">
             </div>
             <div class="col-md-4">
               <label class="form-label fw-bold text-uppercase smaller text-muted">Nombre</label>
@@ -65,6 +65,28 @@ import { HttpClient } from '@angular/common/http';
               </div>
             </div>
           </form>
+        </div>
+      </div>
+
+      <!-- Filtros de búsqueda -->
+      <div class="card mb-4 border animate-slide-up bg-white shadow-sm">
+        <div class="card-body p-4">
+          <div class="row g-3 align-items-center">
+            <div class="col-md-5">
+              <label class="form-label fw-bold text-uppercase smaller text-muted">Filtrar por Curso</label>
+              <select class="form-select" [(ngModel)]="filtroCursoId" (change)="aplicarFiltros()">
+                <option [ngValue]="null" selected>Todos los cursos</option>
+                <option *ngFor="let c of cursos()" [value]="c.id">{{ c.nombre }} ({{ c.nivel }}° Nivel)</option>
+              </select>
+            </div>
+            <div class="col-md-7">
+              <label class="form-label fw-bold text-uppercase smaller text-muted">Buscar Alumno</label>
+              <div class="input-group">
+                <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                <input type="text" class="form-control border-start-0" placeholder="Escribe el nombre o apellido..." [(ngModel)]="filtroTexto" (input)="aplicarFiltros()">
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -125,13 +147,18 @@ export class EstudiantesComponent implements OnInit {
   private http = inject(HttpClient);
   
   alumnos = signal<any[]>([]);
+  alumnosOriginales = signal<any[]>([]); // Full unfiltered list
   cursos = signal<any[]>([]);
   mostrarForm = false;
   modoEdicion = false;
   idEdicion: number | null = null;
   submitting = signal(false);
 
+  filtroCursoId: number | null = null;
+  filtroTexto: string = '';
+
   // Modelo temporal para inscribir o editar a un estudiante
+  rutDisplay = '';
   alumnoForm = { rut: null as number | null, nombre: '', apellidoPaterno: '', cursoId: null as number | null };
 
   alumnoEditando: any = null;
@@ -170,8 +197,27 @@ export class EstudiantesComponent implements OnInit {
           });
         }
       });
-      this.alumnos.set(Array.from(groupedMap.values()));
+      this.alumnosOriginales.set(Array.from(groupedMap.values()));
+      this.aplicarFiltros();
     });
+  }
+
+  aplicarFiltros() {
+    let filtrados = this.alumnosOriginales();
+    
+    if (this.filtroCursoId) {
+      filtrados = filtrados.filter(a => a.cursosRelacionados.some((c: any) => c.id === Number(this.filtroCursoId)));
+    }
+    
+    if (this.filtroTexto && this.filtroTexto.trim() !== '') {
+      const texto = this.filtroTexto.toLowerCase().trim();
+      filtrados = filtrados.filter(a => 
+        (a.nombre + ' ' + (a.apellidoPaterno || '')).toLowerCase().includes(texto) ||
+        (a.rut && a.rut.toString().includes(texto))
+      );
+    }
+    
+    this.alumnos.set(filtrados);
   }
 
   cargarCursos() {
@@ -187,6 +233,7 @@ export class EstudiantesComponent implements OnInit {
       this.idEdicion = null;
       this.alumnoEditando = null;
       this.alumnoForm = { rut: null, nombre: '', apellidoPaterno: '', cursoId: null };
+      this.rutDisplay = '';
     }
   }
 
@@ -195,12 +242,50 @@ export class EstudiantesComponent implements OnInit {
     this.modoEdicion = true;
     this.idEdicion = alumno.id;
     this.alumnoEditando = alumno; // Guardamos el estudiante completo
+    this.rutDisplay = this.formatRutStr(alumno.rut.toString());
     this.alumnoForm = {
       rut: alumno.rut,
       nombre: alumno.nombre,
       apellidoPaterno: alumno.apellidoPaterno,
       cursoId: null // Se deja en null para que escoja un nuevo ramo
     };
+  }
+
+  onRutChange(value: string) {
+    const formatted = this.formatRutStr(value);
+    this.rutDisplay = formatted;
+    // Extract numbers to save in model
+    const numericStr = formatted.replace(/[^0-9]/g, '');
+    this.alumnoForm.rut = numericStr.length > 0 ? parseInt(numericStr.slice(0, 8), 10) : null;
+    // Actually the rut max length before dv is 8 digits (ex 11.111.111-1). The DB stores it as an integer, e.g. 11111111.
+    if(numericStr.length > 0) {
+       this.alumnoForm.rut = parseInt(numericStr, 10);
+       
+       // Autocompletar datos si el alumno ya existe en otro ramo
+       if (!this.modoEdicion) {
+         const alumnoExistente = this.alumnosOriginales().find(a => a.rut === this.alumnoForm.rut);
+         if (alumnoExistente) {
+           this.alumnoForm.nombre = alumnoExistente.nombre;
+           this.alumnoForm.apellidoPaterno = alumnoExistente.apellidoPaterno;
+         }
+       }
+    } else {
+       this.alumnoForm.rut = null;
+    }
+  }
+
+  formatRutStr(value: string): string {
+    let val = value.replace(/[^0-9Kk]/g, '').toUpperCase();
+    if (val.length > 9) {
+      val = val.slice(0, 9);
+    }
+    if (val.length > 1) {
+      let body = val.slice(0, -1);
+      let dv = val.slice(-1);
+      body = body.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      return body + '-' + dv;
+    }
+    return val;
   }
 
   yaInscrito(cursoId: number): boolean {
@@ -300,6 +385,7 @@ export class EstudiantesComponent implements OnInit {
     this.http.post('http://localhost:8080/api/v1/alumnos/', payload).subscribe(() => {
       this.submitting.set(false);
       this.alumnoForm = { rut: null, nombre: '', apellidoPaterno: '', cursoId: null };
+      this.rutDisplay = '';
       this.mostrarForm = false;
       this.modoEdicion = false;
       this.idEdicion = null;

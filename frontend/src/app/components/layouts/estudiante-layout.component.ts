@@ -38,7 +38,7 @@ import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/rou
             <i class="bi bi-grid-1x2-fill"></i> Mi Resumen
           </a>
           <a routerLink="/alumno/asignaturas" routerLinkActive="active" class="nav-link px-3 py-3 d-flex align-items-center gap-3" (click)="closeSidebar()">
-            <i class="bi bi-book-half"></i> Mis Asignaturas
+            <i class="bi bi-book-half"></i> Mis Inscripciones
           </a>
           <a routerLink="/alumno/anotaciones" routerLinkActive="active" class="nav-link px-3 py-3 d-flex align-items-center gap-3" (click)="closeSidebar()">
             <i class="bi bi-shield-exclamation"></i> Mis Anotaciones

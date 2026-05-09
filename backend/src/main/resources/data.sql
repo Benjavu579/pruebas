@@ -1,9 +1,9 @@
 -- Datos semilla para Spring Boot (H2) que coinciden con las Entidades JPA
 
 -- Cursos (Entity: cursos)
-INSERT INTO cursos (id, nombre, nivel, seccion) VALUES (1, 'Aplicaciones Web', 'Superior', 'A');
-INSERT INTO cursos (id, nombre, nivel, seccion) VALUES (2, 'Base de Datos', 'Superior', 'A');
-INSERT INTO cursos (id, nombre, nivel, seccion) VALUES (3, 'Inteligencia Artificial', 'Superior', 'A');
+INSERT INTO cursos (id, nombre, nivel) VALUES (1, 'Aplicaciones Web', 'Superior');
+INSERT INTO cursos (id, nombre, nivel) VALUES (2, 'Base de Datos', 'Superior');
+INSERT INTO cursos (id, nombre, nivel) VALUES (3, 'Inteligencia Artificial', 'Superior');
 
 -- Alumnos (Entity: alumnos)
 INSERT INTO alumnos (id, rut, curso_id, cantidad_atrasos, cantidad_inasistencias, nombre, apellido_paterno) VALUES (1, 11111111, 2, 0, 0, 'Joshua', 'Chiguay');
